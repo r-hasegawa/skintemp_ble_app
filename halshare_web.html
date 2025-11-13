@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Halshare 体表温センサー データ取得</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -221,6 +222,16 @@
         .hidden {
             display: none;
         }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -252,9 +263,6 @@
             <button id="disconnectBtn" class="btn-danger" onclick="disconnect()" disabled>
                 🔌 切断
             </button>
-            <button id="forgetBtn" class="btn-danger" onclick="forgetDevice()" disabled>
-                🗑️ ペアリング解除
-            </button>
         </div>
         
         <div id="statsContainer" class="hidden">
@@ -276,6 +284,13 @@
                     <div class="stat-label">最低温度</div>
                     <div class="stat-value" id="statMin">--</div>
                 </div>
+            </div>
+        </div>
+        
+        <div id="chartContainer" class="hidden">
+            <h3 style="margin-bottom: 15px; color: #333;">📊 温度推移グラフ</h3>
+            <div class="chart-container">
+                <canvas id="temperatureChart"></canvas>
             </div>
         </div>
         
@@ -316,6 +331,7 @@
         let dataBuffer = [];
         let dataAcquisitionTime = null;
         let deviceAddress = null;
+        let temperatureChart = null;  // Chart.jsのインスタンス
         
         // 温度計算関数
         function calculateTemperature(byteValue) {
@@ -379,7 +395,6 @@
                 document.getElementById('scanBtn').disabled = true;
                 document.getElementById('getDataBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = false;
-                document.getElementById('forgetBtn').disabled = false;
                 
             } catch (error) {
                 addLog(`エラー: ${error.message}`, 'error');
@@ -471,6 +486,7 @@
                     updateStatus(`データ取得完了: ${dataBuffer.length}件`, 'success');
                     displayData();
                     displayStats();
+                    displayChart();  // グラフ表示を追加
                     document.getElementById('downloadBtn').disabled = false;
                 } else {
                     addLog('データが取得できませんでした', 'error');
@@ -536,6 +552,147 @@
             document.getElementById('statsContainer').classList.remove('hidden');
         }
         
+        // グラフ表示
+        function displayChart() {
+            if (dataBuffer.length === 0) return;
+            
+            // 時刻を計算
+            let currentTime = new Date(dataAcquisitionTime);
+            const dataWithTime = [];
+            
+            for (let i = dataBuffer.length - 1; i >= 0; i--) {
+                dataWithTime.unshift({
+                    ...dataBuffer[i],
+                    datetime: new Date(currentTime)
+                });
+                
+                if (i > 0) {
+                    currentTime = new Date(currentTime.getTime() - dataBuffer[i].interval * 60000);
+                }
+            }
+            
+            // ラベルとデータを準備
+            const labels = dataWithTime.map(d => {
+                const date = d.datetime;
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${hours}:${minutes}`;
+            });
+            
+            const temperatures = dataWithTime.map(d => d.temperature);
+            
+            // 既存のチャートがあれば破棄
+            if (temperatureChart) {
+                temperatureChart.destroy();
+            }
+            
+            // Chart.jsでグラフを作成
+            const ctx = document.getElementById('temperatureChart').getContext('2d');
+            temperatureChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '体表温 (°C)',
+                        data: temperatures,
+                        borderColor: 'rgb(102, 126, 234)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: 'rgb(102, 126, 234)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                },
+                                color: '#333'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 14
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    return '温度: ' + context.parsed.y.toFixed(2) + '°C';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: '温度 (°C)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                },
+                                color: '#333'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12
+                                },
+                                color: '#666',
+                                callback: function(value) {
+                                    return value.toFixed(1) + '°C';
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '時刻',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                },
+                                color: '#333'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11
+                                },
+                                color: '#666',
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
+            
+            document.getElementById('chartContainer').classList.remove('hidden');
+            addLog('グラフを表示しました', 'success');
+        }
+        
         // CSV生成とダウンロード
         function downloadCSV() {
             if (dataBuffer.length === 0) return;
@@ -591,37 +748,6 @@
             document.getElementById('scanBtn').disabled = false;
             document.getElementById('getDataBtn').disabled = true;
             document.getElementById('disconnectBtn').disabled = true;
-            document.getElementById('forgetBtn').disabled = true;
-        }
-        
-        // ペアリング解除
-        async function forgetDevice() {
-            if (device) {
-                try {
-                    // 先に切断
-                    if (device.gatt.connected) {
-                        device.gatt.disconnect();
-                    }
-                    
-                    // デバイスを「忘れる」
-                    await device.forget();
-                    addLog('ペアリング情報を削除しました', 'success');
-                    updateStatus('ペアリング解除完了', 'success');
-                    
-                    device = null;
-                    characteristic = null;
-                    
-                    document.getElementById('scanBtn').disabled = false;
-                    document.getElementById('getDataBtn').disabled = true;
-                    document.getElementById('disconnectBtn').disabled = true;
-                    document.getElementById('forgetBtn').disabled = true;
-                    
-                } catch (error) {
-                    addLog(`エラー: ${error.message}`, 'error');
-                    updateStatus('ペアリング解除に失敗しました', 'error');
-                    console.error(error);
-                }
-            }
         }
         
         // 日時フォーマット
