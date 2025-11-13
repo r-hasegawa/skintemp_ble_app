@@ -39,7 +39,7 @@ async def scan_and_select_device():
     filtered_devices = {
         address: (device, adv_data)
         for address, (device, adv_data) in devices.items()
-        if device.name == "TM2101-SR"
+        if device.name and device.name.startswith("TM2101-SR")
     }
     
     # 該当デバイスが見つからなかった場合

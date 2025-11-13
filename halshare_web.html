@@ -354,7 +354,7 @@
                 
                 // Bluetoothデバイスを選択
                 device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'TM2101-SR' }],
+                    filters: [{ namePrefix: 'TM2101-SR' }],
                     optionalServices: [SERVICE_UUID]
                 });
                 
