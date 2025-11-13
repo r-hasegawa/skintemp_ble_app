@@ -232,8 +232,6 @@
             <strong>⚠️ 注意事項</strong>
             <ul style="margin-left: 20px; margin-top: 5px;">
                 <li>このアプリは <strong>Chrome、Edge、Opera</strong> などのブラウザで動作します</li>
-                <!-- <li><strong>HTTPS接続</strong>または<strong>localhost</strong>が必要です</li>
-                <li>Firefoxでは Web Bluetooth API が未対 -->応です</li>
             </ul>
         </div>
         
@@ -253,6 +251,9 @@
             </button>
             <button id="disconnectBtn" class="btn-danger" onclick="disconnect()" disabled>
                 🔌 切断
+            </button>
+            <button id="forgetBtn" class="btn-danger" onclick="forgetDevice()" disabled>
+                🗑️ ペアリング解除
             </button>
         </div>
         
@@ -352,7 +353,7 @@
                 addLog('デバイスをスキャン中...', 'info');
                 updateStatus('デバイスをスキャン中...', 'info');
                 
-                // Bluetoothデバイスを選択
+                // Bluetoothデバイスを選択（TM2101-SRで始まる名前）
                 device = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: 'TM2101-SR' }],
                     optionalServices: [SERVICE_UUID]
@@ -378,6 +379,7 @@
                 document.getElementById('scanBtn').disabled = true;
                 document.getElementById('getDataBtn').disabled = false;
                 document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('forgetBtn').disabled = false;
                 
             } catch (error) {
                 addLog(`エラー: ${error.message}`, 'error');
@@ -586,12 +588,40 @@
                 updateStatus('切断しました', 'info');
             }
             
-            device = null;
-            characteristic = null;
-            
             document.getElementById('scanBtn').disabled = false;
             document.getElementById('getDataBtn').disabled = true;
             document.getElementById('disconnectBtn').disabled = true;
+            document.getElementById('forgetBtn').disabled = true;
+        }
+        
+        // ペアリング解除
+        async function forgetDevice() {
+            if (device) {
+                try {
+                    // 先に切断
+                    if (device.gatt.connected) {
+                        device.gatt.disconnect();
+                    }
+                    
+                    // デバイスを「忘れる」
+                    await device.forget();
+                    addLog('ペアリング情報を削除しました', 'success');
+                    updateStatus('ペアリング解除完了', 'success');
+                    
+                    device = null;
+                    characteristic = null;
+                    
+                    document.getElementById('scanBtn').disabled = false;
+                    document.getElementById('getDataBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    document.getElementById('forgetBtn').disabled = true;
+                    
+                } catch (error) {
+                    addLog(`エラー: ${error.message}`, 'error');
+                    updateStatus('ペアリング解除に失敗しました', 'error');
+                    console.error(error);
+                }
+            }
         }
         
         // 日時フォーマット
