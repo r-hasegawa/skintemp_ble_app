@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halshare 体表温センサー データ取得</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #856404;
+        }
+        
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .log-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .log-info {
+            color: #0c5460;
+        }
+        
+        .log-success {
+            color: #155724;
+            font-weight: 600;
+        }
+        
+        .log-error {
+            color: #721c24;
+            background: #f8d7da;
+        }
+        
+        .log-data {
+            color: #004085;
+            background: #cce5ff;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        .data-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌡️ Halshare 体表温センサー</h1>
+        <p class="subtitle">Web Bluetooth APIを使用したデータ取得ツール</p>
+        
+        <div class="warning">
+            <strong>⚠️ 注意事項</strong>
+            <ul style="margin-left: 20px; margin-top: 5px;">
+                <li>このアプリは <strong>Chrome、Edge、Opera</strong> などのブラウザで動作します</li>
+                <li><strong>HTTPS接続</strong>または<strong>localhost</strong>が必要です</li>
+                <li>Firefoxでは Web Bluetooth API が未対応です</li>
+            </ul>
+        </div>
+        
+        <div id="status" class="status status-info">
+            デバイスを選択してください
+        </div>
+        
+        <div class="button-group">
+            <button id="scanBtn" class="btn-primary" onclick="scanAndConnect()">
+                📡 デバイスを選択
+            </button>
+            <button id="getDataBtn" class="btn-success" onclick="getData()" disabled>
+                📊 データ取得
+            </button>
+            <button id="downloadBtn" class="btn-success" onclick="downloadCSV()" disabled>
+                💾 CSV ダウンロード
+            </button>
+            <button id="disconnectBtn" class="btn-danger" onclick="disconnect()" disabled>
+                🔌 切断
+            </button>
+        </div>
+        
+        <div id="statsContainer" class="hidden">
+            <h3 style="margin-bottom: 15px; color: #333;">📈 統計情報</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">データ件数</div>
+                    <div class="stat-value" id="statCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">平均温度</div>
+                    <div class="stat-value" id="statAvg">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">最高温度</div>
+                    <div class="stat-value" id="statMax">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">最低温度</div>
+                    <div class="stat-value" id="statMin">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <h3 style="margin-bottom: 10px; color: #333;">📋 ログ</h3>
+        <div id="log" class="log-container"></div>
+        
+        <div id="dataContainer" class="hidden">
+            <h3 style="margin-bottom: 10px; color: #333;">📊 測定データ</h3>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>日時</th>
+                            <th>温度 (°C)</th>
+                            <th>間隔 (分)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 定数定義
+        const SERVICE_UUID = "61830845-385d-41e8-9ee5-a30b150b49e9";
+        const WRITE_CHAR_UUID = "804cdb50-bac9-448b-8ae2-41e9750ef93a";
+        const READ_CHAR_UUID = "169bb1bb-ae80-4650-bf4b-afb79f38422a";
+        
+        const BASE_TEMPERATURE = 25.0;
+        const CELSIUS_PER_LSB = 0.0625;
+        const WEARER_NAME = "test";
+        
+        // グローバル変数
+        let device = null;
+        let characteristic = null;
+        let dataBuffer = [];
+        let dataAcquisitionTime = null;
+        let deviceAddress = null;
+        
+        // 温度計算関数
+        function calculateTemperature(byteValue) {
+            const unsignedValue = byteValue >= 0 ? byteValue : byteValue + 256;
+            return (unsignedValue * CELSIUS_PER_LSB) + BASE_TEMPERATURE;
+        }
+        
+        // ログ出力
+        function addLog(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // ステータス更新
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status status-${type}`;
+        }
+        
+        // デバイススキャンと接続
+        async function scanAndConnect() {
+            try {
+                // Web Bluetooth API対応チェック
+                if (!navigator.bluetooth) {
+                    updateStatus('このブラウザはWeb Bluetooth APIに対応していません', 'error');
+                    addLog('エラー: Web Bluetooth API未対応', 'error');
+                    return;
+                }
+                
+                addLog('デバイスをスキャン中...', 'info');
+                updateStatus('デバイスをスキャン中...', 'info');
+                
+                // Bluetoothデバイスを選択
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'TM2101-SR' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+                
+                deviceAddress = device.id;
+                addLog(`デバイス選択: ${device.name} (${device.id})`, 'success');
+                
+                // GATT サーバーに接続
+                addLog('デバイスに接続中...', 'info');
+                const server = await device.gatt.connect();
+                addLog('接続成功！', 'success');
+                
+                // サービスを取得
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                
+                // キャラクタリスティックを取得
+                characteristic = await service.getCharacteristic(WRITE_CHAR_UUID);
+                
+                updateStatus(`接続完了: ${device.name}`, 'success');
+                
+                // ボタンの状態を更新
+                document.getElementById('scanBtn').disabled = true;
+                document.getElementById('getDataBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = false;
+                
+            } catch (error) {
+                addLog(`エラー: ${error.message}`, 'error');
+                updateStatus('接続に失敗しました', 'error');
+                console.error(error);
+            }
+        }
+        
+        // データ取得
+        async function getData() {
+            try {
+                dataBuffer = [];
+                dataAcquisitionTime = null;
+                
+                addLog('データ取得を開始します...', 'info');
+                updateStatus('データ取得中...', 'info');
+                
+                // ボタンを無効化
+                document.getElementById('getDataBtn').disabled = true;
+                
+                // 通知用キャラクタリスティックを取得
+                const service = await device.gatt.getPrimaryService(SERVICE_UUID);
+                const notifyChar = await service.getCharacteristic(READ_CHAR_UUID);
+                
+                // 通知を設定
+                let measurementComplete = false;
+                
+                notifyChar.addEventListener('characteristicvaluechanged', (event) => {
+                    const value = event.target.value;
+                    const data = new Uint8Array(value.buffer);
+                    
+                    addLog(`データ受信: ${data.length} bytes`, 'data');
+                    
+                    // 終了フレーム検出
+                    if (data.length >= 2 && data[0] === 0x45 && data[1] === 0x4E) { // 'EN'
+                        addLog('最終フレーム受信（データ取得完了）', 'success');
+                        measurementComplete = true;
+                        dataAcquisitionTime = new Date();
+                        return;
+                    }
+                    
+                    // 温度データをパース
+                    if (data.length >= 2 && data.length % 2 === 0) {
+                        for (let i = 0; i < data.length; i += 2) {
+                            const interval = data[i];
+                            const tempByte = data[i + 1];
+                            const temperature = calculateTemperature(tempByte);
+                            
+                            dataBuffer.push({
+                                interval: interval,
+                                temperature: temperature,
+                                rawTempByte: tempByte
+                            });
+                            
+                            addLog(`  温度: ${temperature.toFixed(2)}°C (間隔: ${interval}分)`, 'data');
+                        }
+                    }
+                });
+                
+                await notifyChar.startNotifications();
+                addLog('通知を有効化しました', 'info');
+                
+                // GETDATAコマンドを送信
+                const command = "GETDATA\n";
+                const encoder = new TextEncoder();
+                const commandBytes = encoder.encode(command);
+                
+                await characteristic.writeValue(commandBytes);
+                addLog('GETDATAコマンド送信', 'success');
+                
+                // データ受信完了を待機
+                const timeout = 60000; // 60秒
+                const startTime = Date.now();
+                
+                while (!measurementComplete) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    if (Date.now() - startTime > timeout) {
+                        addLog('タイムアウト', 'error');
+                        break;
+                    }
+                }
+                
+                // 通知を停止
+                await notifyChar.stopNotifications();
+                
+                if (dataBuffer.length > 0) {
+                    addLog(`データ取得完了: ${dataBuffer.length}件`, 'success');
+                    updateStatus(`データ取得完了: ${dataBuffer.length}件`, 'success');
+                    displayData();
+                    displayStats();
+                    document.getElementById('downloadBtn').disabled = false;
+                } else {
+                    addLog('データが取得できませんでした', 'error');
+                    updateStatus('データ取得失敗', 'error');
+                }
+                
+                document.getElementById('getDataBtn').disabled = false;
+                
+            } catch (error) {
+                addLog(`エラー: ${error.message}`, 'error');
+                updateStatus('データ取得に失敗しました', 'error');
+                console.error(error);
+                document.getElementById('getDataBtn').disabled = false;
+            }
+        }
+        
+        // データ表示
+        function displayData() {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+            
+            // 時刻を計算
+            let currentTime = new Date(dataAcquisitionTime);
+            const dataWithTime = [];
+            
+            for (let i = dataBuffer.length - 1; i >= 0; i--) {
+                dataWithTime.unshift({
+                    ...dataBuffer[i],
+                    datetime: new Date(currentTime)
+                });
+                
+                if (i > 0) {
+                    currentTime = new Date(currentTime.getTime() - dataBuffer[i].interval * 60000);
+                }
+            }
+            
+            // テーブルに表示
+            dataWithTime.forEach((data, index) => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = index + 1;
+                row.insertCell(1).textContent = formatDateTime(data.datetime);
+                row.insertCell(2).textContent = data.temperature.toFixed(2);
+                row.insertCell(3).textContent = data.interval;
+            });
+            
+            document.getElementById('dataContainer').classList.remove('hidden');
+        }
+        
+        // 統計表示
+        function displayStats() {
+            if (dataBuffer.length === 0) return;
+            
+            const temps = dataBuffer.map(d => d.temperature);
+            const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+            const max = Math.max(...temps);
+            const min = Math.min(...temps);
+            
+            document.getElementById('statCount').textContent = dataBuffer.length;
+            document.getElementById('statAvg').textContent = avg.toFixed(2) + '°C';
+            document.getElementById('statMax').textContent = max.toFixed(2) + '°C';
+            document.getElementById('statMin').textContent = min.toFixed(2) + '°C';
+            
+            document.getElementById('statsContainer').classList.remove('hidden');
+        }
+        
+        // CSV生成とダウンロード
+        function downloadCSV() {
+            if (dataBuffer.length === 0) return;
+            
+            // CSVデータ生成
+            let csv = 'halshareWearerName,halshareId,datetime,temperature\n';
+            
+            let currentTime = new Date(dataAcquisitionTime);
+            const csvRows = [];
+            
+            for (let i = dataBuffer.length - 1; i >= 0; i--) {
+                csvRows.unshift({
+                    wearerName: WEARER_NAME,
+                    id: deviceAddress,
+                    datetime: formatDateTime(currentTime),
+                    temperature: dataBuffer[i].temperature
+                });
+                
+                if (i > 0) {
+                    currentTime = new Date(currentTime.getTime() - dataBuffer[i].interval * 60000);
+                }
+            }
+            
+            csvRows.forEach(row => {
+                csv += `"${row.wearerName}","${row.id}","${row.datetime}",${row.temperature}\n`;
+            });
+            
+            // ダウンロード
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            const filename = `halshare_data_${formatFileDateTime(new Date())}.csv`;
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            addLog(`CSVファイルをダウンロードしました: ${filename}`, 'success');
+        }
+        
+        // 切断
+        function disconnect() {
+            if (device && device.gatt.connected) {
+                device.gatt.disconnect();
+                addLog('デバイスから切断しました', 'info');
+                updateStatus('切断しました', 'info');
+            }
+            
+            device = null;
+            characteristic = null;
+            
+            document.getElementById('scanBtn').disabled = false;
+            document.getElementById('getDataBtn').disabled = true;
+            document.getElementById('disconnectBtn').disabled = true;
+        }
+        
+        // 日時フォーマット
+        function formatDateTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+        }
+        
+        function formatFileDateTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+        }
+        
+        // 初期化
+        addLog('アプリケーション起動', 'success');
+        
+        // Web Bluetooth API対応チェック
+        if (!navigator.bluetooth) {
+            updateStatus('このブラウザはWeb Bluetooth APIに対応していません', 'error');
+            addLog('エラー: Web Bluetooth API未対応', 'error');
+            addLog('Chrome、Edge、Operaなどのブラウザをお使いください', 'error');
+            document.getElementById('scanBtn').disabled = true;
+        }
+    </script>
+</body>
+</html>
