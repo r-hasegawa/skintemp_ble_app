@@ -143,7 +143,7 @@ class HalshareReader:
                     temp_byte = data[i + 1]
                     
                     temperature = self.calculate_temperature(temp_byte)
-                    print(f"    [{i//2}] 間隔={interval_byte}分, 温度={temperature:.2f}°C")
+                    # print(f"    [{i//2}] 間隔={interval_byte}分, 温度={temperature:.2f}°C")
                     
                     self.data_buffer.append({
                         'interval': interval_byte,
@@ -298,12 +298,12 @@ async def main():
         # 結果表示
         if measurements:
             print(f"\n取得した測定データ: {len(measurements)}件")
-            print("\n測定結果一覧:")
-            print("-" * 70)
-            for i, m in enumerate(measurements, 1):
-                print(f"{i:3d}. 温度: {m['temperature']:6.2f}°C "
-                      f"(間隔: {m['interval']:3d}分, "
-                      f"生データ: 0x{m['raw_temp_byte']:02x})")
+            # print("\n測定結果一覧:")
+            # print("-" * 70)
+            # for i, m in enumerate(measurements, 1):
+            #     print(f"{i:3d}. 温度: {m['temperature']:6.2f}°C "
+            #           f"(間隔: {m['interval']:3d}分, "
+            #           f"生データ: 0x{m['raw_temp_byte']:02x})")
             
             # 統計
             temps = [m['temperature'] for m in measurements]
@@ -320,13 +320,13 @@ async def main():
             save_to_csv(csv_data, output_filename)
             
             # CSVプレビュー
-            print("\nCSV出力プレビュー:")
-            print("-" * 70)
-            for row in csv_data[:5]:  # 最初の5件を表示
-                print(f"{row['halshareWearerName']}, {row['halshareId']}, "
-                      f"{row['datetime']}, {row['temperature']}")
-            if len(csv_data) > 5:
-                print(f"... (残り {len(csv_data) - 5} 件)")
+            # print("\nCSV出力プレビュー:")
+            # print("-" * 70)
+            # for row in csv_data[:5]:  # 最初の5件を表示
+            #     print(f"{row['halshareWearerName']}, {row['halshareId']}, "
+            #           f"{row['datetime']}, {row['temperature']}")
+            # if len(csv_data) > 5:
+            #     print(f"... (残り {len(csv_data) - 5} 件)")
         else:
             print("\n⚠ データが取得できませんでした")
         
