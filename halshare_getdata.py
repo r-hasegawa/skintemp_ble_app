@@ -85,21 +85,47 @@ def parse_last_frame(data: bytes | bytearray) -> tuple[int, int]:
 # スキャン
 # ═══════════════════════════════════════════════════════════════════
 
+def parse_manufacturer_data(adv_data) -> dict:
+    """ManufacturerDataからバッテリー情報等をパース"""
+    result = {"serial": None, "system_time": None, "battery_warning": None, "battery_str": "不明"}
+    mfr = adv_data.manufacturer_data.get(2585, b'') if hasattr(adv_data, 'manufacturer_data') else b''
+    if len(mfr) >= 22:
+        result["serial"] = ''.join(f'{mfr[i]:02X}' for i in range(5, -1, -1))
+        result["system_time"] = mfr[18] | (mfr[19] << 8) | (mfr[20] << 16)
+        bw = (mfr[21] & 0x30) >> 4
+        result["battery_warning"] = bw
+        if bw == 0:
+            result["battery_str"] = "✅ 正常"
+        elif bw == 2:
+            result["battery_str"] = "⚠️  低下"
+        elif bw == 3:
+            result["battery_str"] = "🔴 ほぼ切れ"
+        else:
+            result["battery_str"] = f"不明({bw})"
+    return result
+
+
 async def scan_for_device(name_prefix: str, timeout: float):
     print(f"[SCAN] {name_prefix} を探しています... ({timeout}秒)")
-    devices = await BleakScanner.discover(timeout=timeout)
-    matched = [d for d in devices if d.name and d.name.startswith(name_prefix)]
+    devices = await BleakScanner.discover(timeout=timeout, return_adv=True)
+    matched = [(d, adv) for d, adv in devices.values()
+               if d.name and d.name.startswith(name_prefix)]
     if not matched:
         print(f"[ERROR] '{name_prefix}' で始まるデバイスが見つかりませんでした")
         return None
     if len(matched) == 1:
-        print(f"[SCAN] 発見: {matched[0].name}  ({matched[0].address})")
-        return matched[0]
+        d, adv = matched[0]
+        info = parse_manufacturer_data(adv)
+        print(f"[SCAN] 発見: {d.name}  ({d.address})  battery={info['battery_str']}")
+        if info['battery_warning'] and info['battery_warning'] >= 2:
+            print(f"[WARN] バッテリー低下！データ取得できない可能性があります")
+        return d
     print("[SCAN] 複数のデバイスが見つかりました:")
-    for i, d in enumerate(matched):
-        print(f"  [{i}] {d.name}  ({d.address})")
+    for i, (d, adv) in enumerate(matched):
+        info = parse_manufacturer_data(adv)
+        print(f"  [{i}] {d.name}  ({d.address})  battery={info['battery_str']}")
     idx = int(input("番号を選んでください: "))
-    return matched[idx]
+    return matched[idx][0]
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -150,11 +176,7 @@ async def send_command_and_wait(
             frames.append(raw)
             last_frame_found[0] = True
             if stop_on_last_frame:
-                data_frames = [f for f in frames if not is_last_frame(f) and f != b"OK\n"]
-                if data_frames:
-                    done_event.set()
-                else:
-                    print(f"    [INFO] データフレームなし → ラストフレーム後のデータを待機...")
+                done_event.set()
             return
 
         # 偶数バイト → 温度データフレーム候補
@@ -220,21 +242,23 @@ def parse_measurements(frames: list[bytes]) -> list[dict]:
     else:
         base_time = datetime.now(timezone.utc)
 
-    all_measurements = []
-    current_time = base_time
-
-    for frame in reversed(data_frames):
-        frame_meas = []
+    # 全フレームのデータを1つのリストに結合してから処理
+    # （HTML版と同じロジック: 全体を後ろから1件ずつ時刻を逆算）
+    all_pairs = []
+    for frame in data_frames:
         n = len(frame) // 2
-        for i in range(n - 1, -1, -1):
-            interval_min = frame[i * 2]
-            temp         = calc_temp(frame[i * 2 + 1])
-            frame_meas.append({"datetime": current_time, "temperature": temp})
-            current_time -= timedelta(minutes=interval_min)
-        all_measurements.extend(reversed(frame_meas))
+        for i in range(n):
+            all_pairs.append((frame[i * 2], frame[i * 2 + 1]))  # (interval, tempByte)
 
-    all_measurements.reverse()
-    return all_measurements
+    # 最新から逆算して古い順に並べる
+    current_time = base_time
+    result = []
+    for interval_min, temp_byte in reversed(all_pairs):
+        result.append({"datetime": current_time, "temperature": calc_temp(temp_byte), "interval": interval_min})
+        current_time -= timedelta(minutes=interval_min)
+
+    result.reverse()  # 古い順（昇順）に並べ直す
+    return result
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -246,10 +270,10 @@ def save_csv(measurements: list[dict], wearer_name: str = "test") -> Path:
     filename = Path(f"halshare_{ts}.csv")
     with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["halshareWearerName", "datetime", "temperature"])
+        writer.writerow(["halshareWearerName", "datetime", "temperature", "interval_min"])
         for m in measurements:
             dt_str = m["datetime"].astimezone().strftime("%Y/%m/%d %H:%M:%S")
-            writer.writerow([wearer_name, dt_str, f"{m['temperature']:.4f}"])
+            writer.writerow([wearer_name, dt_str, f"{m['temperature']:.4f}", m.get("interval", "")])
     return filename
 
 
@@ -259,14 +283,11 @@ def save_csv(measurements: list[dict], wearer_name: str = "test") -> Path:
 
 MENU = """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Halshare TM2101-SR 診断ツール
+  Halshare TM2101-SR データ取得
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  [1] GETDATA のみ
-  [2] SETTING(1分) → GETDATA
-  [3] SETTING(1分) のみ
-  [4] CLRDATA のみ
-  [5] 生コマンド送信（16進数入力）
-  [6] 初期化シーケンス（SETTING→GETDATA→CLRDATA）
+  [1] GETDATA
+  [2] SETTING(1分)
+  [3] SETTING(5分)
   [q] 終了
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
@@ -293,80 +314,33 @@ async def run_menu(client: BleakClient):
             else:
                 print("  → データ0件")
 
+
+
         elif choice == "2":
             print("\n── SETTING(1分) ──")
-            await send_command_and_wait(
+            frames = await send_command_and_wait(
                 client, cmd_setting(1), "SETTING",
-                timeout=10, stop_on_last_frame=False, stop_on_ok=True
-            )
-            print("\n── GETDATA ──")
-            frames = await send_command_and_wait(
-                client, cmd_getdata(), "GETDATA",
-                stop_on_last_frame=True, stop_on_ok=False
-            )
-            measurements = parse_measurements(frames)
-            if measurements:
-                all_measurements = measurements
-                _print_summary(measurements)
-            else:
-                print("  → データ0件")
-
-        elif choice == "6":
-            # initializePatch相当: SETTING → GETDATA → CLRDATA
-            print("\n── 初期化シーケンス: SETTING → GETDATA → CLRDATA ──")
-            print("  ⚠️  この操作はセンサを初期化します")
-            confirm = input("  続けますか? [y/N]: ").strip().lower()
-            if confirm != "y":
-                print("  キャンセルしました")
-                continue
-            interval = int(input("  測定間隔（分）[1]: ").strip() or "1")
-
-            print("\n[1/3] SETTING ──")
-            await send_command_and_wait(
-                client, cmd_setting(interval), "SETTING",
-                timeout=10, stop_on_last_frame=False, stop_on_ok=True
-            )
-            print("\n[2/3] GETDATA ──")
-            await send_command_and_wait(
-                client, cmd_getdata(), "GETDATA",
-                timeout=10, stop_on_last_frame=True, stop_on_ok=False
-            )
-            print("\n[3/3] CLRDATA ──")
-            frames = await send_command_and_wait(
-                client, cmd_clrdata(), "CLRDATA",
                 timeout=10, stop_on_last_frame=False, stop_on_ok=True
             )
             print(f"  受信: {[to_hex(f) for f in frames]}")
-            print("\n✅ 初期化完了。センサを数分放置してからデータ取得してください。")
 
         elif choice == "3":
-            print("\n── SETTING(1分) ──")
+            print("\n── SETTING(5分) ──")
             frames = await send_command_and_wait(
-                client, cmd_setting(1), "SETTING",
+                client, cmd_setting(5), "SETTING",
                 timeout=10, stop_on_last_frame=False, stop_on_ok=True
             )
-            print(f"  受信フレーム: {[to_hex(f) for f in frames]}")
+            print(f"  受信: {[to_hex(f) for f in frames]}")
 
-        elif choice == "4":
-            print("\n── CLRDATA ──")
-            frames = await send_command_and_wait(
-                client, cmd_clrdata(), "CLRDATA",
-                timeout=10, stop_on_last_frame=False, stop_on_ok=True
-            )
-            print(f"  受信フレーム: {[to_hex(f) for f in frames]}")
+        # elif choice == "4":  # CLRDATA
+        #     print("\n── CLRDATA ──")
+        #     frames = await send_command_and_wait(
+        #         client, cmd_clrdata(), "CLRDATA",
+        #         timeout=10, stop_on_last_frame=False, stop_on_ok=True
+        #     )
+        #     print(f"  受信フレーム: {[to_hex(f) for f in frames]}")
 
-        elif choice == "5":
-            hex_input = input("16進数で入力 (例: 47455444415441 0a): ").replace(" ", "")
-            try:
-                raw_cmd = bytes.fromhex(hex_input)
-                print(f"\n── カスタムコマンド: [{to_hex(raw_cmd)}] ──")
-                frames = await send_command_and_wait(
-                    client, raw_cmd, "CUSTOM",
-                    timeout=30, stop_on_last_frame=True, stop_on_ok=True
-                )
-                print(f"  受信フレーム数: {len(frames)}")
-            except ValueError as e:
-                print(f"  [ERROR] {e}")
+
 
         else:
             print("  無効な選択です")
