@@ -25,7 +25,7 @@ cd <フォルダ名>
 
 **2. 仮想環境を作成・有効化**
 
-macOS / Linux:
+macOS:
 ```bash
 python3 -m venv build_env
 source build_env/bin/activate
@@ -47,9 +47,14 @@ pip install -r requirements.txt
 
 ### GUIアプリ（推奨）
 
+macOS:
 ```bash
-python halshare_gui.py   # macOS/Linux
-python halshare_gui.py   # Windows
+python3 halshare_gui.py
+```
+
+Windows:
+```cmd
+python halshare_gui.py
 ```
 
 1. 「📡 スキャン開始」を押してセンサを探す
@@ -62,21 +67,22 @@ CSVは実行ファイルと同じ階層の `exportdata/` フォルダに保存�
 ### CLIスクリプト
 
 ```bash
-python halshare_getdata.py
+python3 halshare_getdata.py
 ```
 
 ## アプリ化（pyinstaller）
 
-仮想環境を有効化した状態で：
+仮想環境を有効化した状態で実行してください。
+それぞれ使いたいOSでビルドする必要があります（クロスコンパイル不可）。
 
-macOS:
+**macOS** → `dist/HalshareGUI.app`（ダブルクリックで起動）:
 ```bash
-pyinstaller halshare_gui.py --onefile --strip --name HalshareGUI
+pyinstaller halshare_gui.py --onefile --windowed --strip --name HalshareGUI
 ```
 
-Windows:
+**Windows** → `dist/HalshareGUI.exe`（ダブルクリックで起動）:
 ```cmd
-pyinstaller halshare_gui.py --onefile --name HalshareGUI
+pyinstaller halshare_gui.py --onefile --windowed --name HalshareGUI
 ```
 
 ビルド成果物は `dist/` フォルダに生成されます。
