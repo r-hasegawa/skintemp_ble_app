@@ -116,14 +116,16 @@ async def scan_for_device(name_prefix: str, timeout: float):
     if len(matched) == 1:
         d, adv = matched[0]
         info = parse_manufacturer_data(adv)
-        print(f"[SCAN] 発見: {d.name}  ({d.address})  battery={info['battery_str']}")
+        serial = info['serial'] or d.address
+        print(f"[SCAN] 発見: {d.name}  serial={serial}  battery={info['battery_str']}")
         if info['battery_warning'] and info['battery_warning'] >= 2:
             print(f"[WARN] バッテリー低下！データ取得できない可能性があります")
         return d
     print("[SCAN] 複数のデバイスが見つかりました:")
     for i, (d, adv) in enumerate(matched):
         info = parse_manufacturer_data(adv)
-        print(f"  [{i}] {d.name}  ({d.address})  battery={info['battery_str']}")
+        serial = info['serial'] or d.address
+        print(f"  [{i}] serial={serial}  battery={info['battery_str']}")
     idx = int(input("番号を選んでください: "))
     return matched[idx][0]
 
@@ -375,7 +377,7 @@ async def main():
     client = None
     for attempt in range(3):
         try:
-            print(f"[BLE] 接続中: {device.name} ({device.address})  (試行 {attempt+1}/3)")
+            print(f"[BLE] 接続中: {device.name}  (試行 {attempt+1}/3)")
             client = BleakClient(device, timeout=20.0)
             await client.connect()
             print(f"[BLE] 接続成功")

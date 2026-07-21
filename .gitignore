@@ -2,3 +2,8 @@
 __pycache__/
 .DS_Store
 *.pyc
+exportdata/
+build/
+dist/
+*.spec
+build_env/

@@ -3,786 +3,517 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Halshare 体表温センサー データ取得</title>
+    <title>Halshare 体表温センサー</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            min-height: 100vh; padding: 20px;
         }
-        
         .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            padding: 30px;
+            max-width: 1000px; margin: 0 auto; background: white;
+            border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 30px;
         }
-        
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-        
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-        
+        h1 { color: #333; margin-bottom: 6px; font-size: 26px; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 13px; }
         .warning {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 20px;
-            color: #856404;
+            background: #fff3cd; border: 1px solid #ffc107;
+            border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; color: #856404; font-size: 13px;
         }
-        
-        .warning strong {
-            display: block;
-            margin-bottom: 5px;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        
+        .button-group { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
         button {
-            padding: 12px 24px;
-            font-size: 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
+            padding: 10px 22px; font-size: 14px; border: none;
+            border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: 600;
         }
-        
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover:not(:disabled) {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-success:hover:not(:disabled) {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-danger:hover:not(:disabled) {
-            background: #c82333;
-        }
-        
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary  { background: #667eea; color: white; }
+        .btn-primary:hover:not(:disabled)  { background: #5568d3; transform: translateY(-1px); }
+        .btn-success  { background: #28a745; color: white; }
+        .btn-success:hover:not(:disabled)  { background: #218838; transform: translateY(-1px); }
+        .btn-danger   { background: #dc3545; color: white; }
+        .btn-danger:hover:not(:disabled)   { background: #c82333; }
+        .btn-secondary { background: #6c757d; color: white; font-size: 12px; padding: 6px 14px; }
         .status {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-weight: 500;
+            padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; font-weight: 500; font-size: 14px;
         }
-        
-        .status-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
+        .status-info    { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .status-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status-warning { background: #fff3cd; color: #856404; border: 1px solid #ffc107; }
+
+        /* デバッグパネル */
+        .debug-panel {
+            background: #1e1e2e; border-radius: 8px; padding: 14px; margin-bottom: 16px;
         }
-        
-        .status-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .debug-panel h4 { color: #89b4fa; margin-bottom: 10px; font-size: 13px; }
+        .debug-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px;
         }
-        
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .debug-item { background: #313244; padding: 8px 10px; border-radius: 4px; font-size: 12px; }
+        .debug-item .label { color: #a6adc8; font-size: 11px; }
+        .debug-item .value { color: #a6e3a1; font-weight: bold; font-size: 15px; }
+        .header-box {
+            background: #313244; border-radius: 6px; padding: 8px 12px;
+            font-family: monospace; font-size: 11px; color: #cba6f7; margin-top: 6px;
         }
-        
+        .header-field { display: inline-block; margin-right: 16px; margin-top: 3px; }
+        .header-field span { color: #f38ba8; font-weight: bold; }
+        .progress-bar { height: 5px; background: #e9ecef; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #667eea; border-radius: 3px; transition: width 0.3s; width: 0%; }
+
+        /* ログ */
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .log-container {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 15px;
-            max-height: 400px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
+            background: #1e1e1e; border: 1px solid #333; border-radius: 6px;
+            padding: 10px; max-height: 420px; overflow-y: auto; margin-bottom: 16px;
+            font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.6;
         }
-        
-        .log-entry {
-            margin-bottom: 8px;
-            padding: 5px;
-            border-radius: 3px;
-        }
-        
-        .log-info {
-            color: #0c5460;
-        }
-        
-        .log-success {
-            color: #155724;
-            font-weight: 600;
-        }
-        
-        .log-error {
-            color: #721c24;
-            background: #f8d7da;
-        }
-        
-        .log-data {
-            color: #004085;
-            background: #cce5ff;
-        }
-        
+        .log-entry { margin-bottom: 1px; padding: 1px 3px; border-radius: 2px; }
+        .log-info         { color: #9cdcfe; }
+        .log-success      { color: #4ec9b0; font-weight: 600; }
+        .log-error        { color: #f48771; }
+        .log-warn         { color: #ffcc66; }
+        .log-raw          { color: #6a6a6a; }
+        .log-header-frame { color: #c586c0; font-weight: bold; }
+        .log-data         { color: #ce9178; }
+
+        /* 統計 */
         .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px;
         }
-        
         .stat-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
+            color: white; padding: 16px; border-radius: 8px; text-align: center;
         }
-        
-        .stat-label {
-            font-size: 14px;
-            opacity: 0.9;
-            margin-bottom: 8px;
-        }
-        
-        .stat-value {
-            font-size: 28px;
-            font-weight: bold;
-        }
-        
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 14px;
-        }
-        
-        .data-table th {
-            background: #667eea;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-        }
-        
-        .data-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #dee2e6;
-        }
-        
-        .data-table tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
+        .stat-label { font-size: 12px; opacity: 0.9; margin-bottom: 5px; }
+        .stat-value { font-size: 24px; font-weight: bold; }
+
+        /* テーブル */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th { background: #667eea; color: white; padding: 9px; text-align: left; }
+        .data-table td { padding: 7px 9px; border-bottom: 1px solid #dee2e6; }
+        .data-table tr:hover { background: #f8f9fa; }
+
+        /* グラフ */
         .chart-container {
-            position: relative;
-            height: 400px;
-            margin-bottom: 30px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative; height: 360px; margin-bottom: 20px;
+            padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🌡️ Halshare 体表温センサー</h1>
-        <p class="subtitle">Web Bluetooth APIを使用したデータ取得ツール</p>
-        
-        <div class="warning">
-            <strong>⚠️ 注意事項</strong>
-            <ul style="margin-left: 20px; margin-top: 5px;">
-                <li>このアプリは <strong>Chrome、Edge、Opera</strong> などのブラウザで動作します</li>
-            </ul>
+<div class="container">
+    <h1>🌡️ Halshare 体表温センサー</h1>
+    <p class="subtitle">Web Bluetooth API（Indicate対応版）</p>
+
+    <div class="warning">
+        ⚠️ Chrome / Edge / Opera が必要です。
+    </div>
+
+    <div id="status" class="status status-info">デバイスを選択してください</div>
+
+    <div class="button-group">
+        <button id="scanBtn"       class="btn-primary" onclick="scanAndConnect()">📡 デバイスを選択</button>
+        <button id="getDataBtn"    class="btn-success" onclick="getData()" disabled>📊 データ取得</button>
+        <button id="downloadBtn"   class="btn-success" onclick="downloadCSV()" disabled>💾 CSV</button>
+        <button id="setting1Btn"   class="btn-secondary" onclick="sendSetting(1)" disabled>⚙️ SETTING(1分)</button>
+        <button id="setting5Btn"   class="btn-secondary" onclick="sendSetting(5)" disabled>⚙️ SETTING(5分)</button>
+        <button id="disconnectBtn" class="btn-danger"  onclick="disconnect()" disabled>🔌 切断</button>
+    </div>
+
+    <!-- デバッグパネル -->
+    <div id="debugPanel" class="debug-panel hidden">
+        <h4>🔬 受信状況</h4>
+        <div class="debug-grid">
+            <div class="debug-item"><div class="label">フレーム数</div><div class="value" id="dbgFrames">0</div></div>
+            <div class="debug-item"><div class="label">データ件数</div><div class="value" id="dbgParsed">0</div></div>
+            <div class="debug-item"><div class="label">ラストフレーム</div><div class="value" id="dbgLast">未</div></div>
+            <div class="debug-item"><div class="label">センサ内件数</div><div class="value" id="dbgSensorCount">-</div></div>
         </div>
-        
-        <div id="status" class="status status-info">
-            デバイスを選択してください
+        <div id="headerBox" class="header-box hidden">
+            <div style="color:#89b4fa; margin-bottom:4px; font-size:12px;">📦 ラストフレーム解析</div>
+            <div class="header-field">RAW: <span id="hdrRaw">-</span></div><br>
+            <div class="header-field">データ件数: <span id="hdrCount">-</span></div>
+            <div class="header-field">最終測定からの経過秒: <span id="hdrSec">-</span></div>
         </div>
-        
-        <div class="button-group">
-            <button id="scanBtn" class="btn-primary" onclick="scanAndConnect()">
-                📡 デバイスを選択
-            </button>
-            <button id="getDataBtn" class="btn-success" onclick="getData()" disabled>
-                📊 データ取得
-            </button>
-            <button id="downloadBtn" class="btn-success" onclick="downloadCSV()" disabled>
-                💾 CSV ダウンロード
-            </button>
-            <button id="disconnectBtn" class="btn-danger" onclick="disconnect()" disabled>
-                🔌 切断
-            </button>
-        </div>
-        
-        <div id="statsContainer" class="hidden">
-            <h3 style="margin-bottom: 15px; color: #333;">📈 統計情報</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">データ件数</div>
-                    <div class="stat-value" id="statCount">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">平均温度</div>
-                    <div class="stat-value" id="statAvg">--</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">最高温度</div>
-                    <div class="stat-value" id="statMax">--</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">最低温度</div>
-                    <div class="stat-value" id="statMin">--</div>
-                </div>
-            </div>
-        </div>
-        
-        <div id="chartContainer" class="hidden">
-            <h3 style="margin-bottom: 15px; color: #333;">📊 温度推移グラフ</h3>
-            <div class="chart-container">
-                <canvas id="temperatureChart"></canvas>
-            </div>
-        </div>
-        
-        <h3 style="margin-bottom: 10px; color: #333;">📋 ログ</h3>
-        <div id="log" class="log-container"></div>
-        
-        <div id="dataContainer" class="hidden">
-            <h3 style="margin-bottom: 10px; color: #333;">📊 測定データ</h3>
-            <div style="overflow-x: auto;">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>日時</th>
-                            <th>温度 (°C)</th>
-                            <th>間隔 (分)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="dataTableBody"></tbody>
-                </table>
-            </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <!-- 統計 -->
+    <div id="statsContainer" class="hidden">
+        <h3 style="margin-bottom:10px;color:#333;">📈 統計</h3>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">データ件数</div><div class="stat-value" id="statCount">0</div></div>
+            <div class="stat-card"><div class="stat-label">平均温度</div><div class="stat-value" id="statAvg">--</div></div>
+            <div class="stat-card"><div class="stat-label">最高温度</div><div class="stat-value" id="statMax">--</div></div>
+            <div class="stat-card"><div class="stat-label">最低温度</div><div class="stat-value" id="statMin">--</div></div>
         </div>
     </div>
 
-    <script>
-        // 定数定義
-        const SERVICE_UUID = "61830845-385d-41e8-9ee5-a30b150b49e9";
-        const WRITE_CHAR_UUID = "804cdb50-bac9-448b-8ae2-41e9750ef93a";
-        const READ_CHAR_UUID = "169bb1bb-ae80-4650-bf4b-afb79f38422a";
-        
-        const BASE_TEMPERATURE = 25.0;
-        const CELSIUS_PER_LSB = 0.0625;
-        const WEARER_NAME = "test";
-        
-        // グローバル変数
-        let device = null;
-        let characteristic = null;
-        let dataBuffer = [];
-        let dataAcquisitionTime = null;
-        let deviceAddress = null;
-        let temperatureChart = null;  // Chart.jsのインスタンス
-        
-        // 温度計算関数
-        function calculateTemperature(byteValue) {
-            const unsignedValue = byteValue >= 0 ? byteValue : byteValue + 256;
-            return (unsignedValue * CELSIUS_PER_LSB) + BASE_TEMPERATURE;
+    <!-- グラフ -->
+    <div id="chartContainer" class="hidden">
+        <h3 style="margin-bottom:10px;color:#333;">📊 温度推移</h3>
+        <div class="chart-container"><canvas id="temperatureChart"></canvas></div>
+    </div>
+
+    <!-- ログ -->
+    <div class="log-header">
+        <h3 style="color:#333;">📋 ログ</h3>
+        <button class="btn-secondary" onclick="clearLog()">クリア</button>
+    </div>
+    <div id="log" class="log-container"></div>
+
+    <!-- データテーブル -->
+    <div id="dataContainer" class="hidden">
+        <h3 style="margin-bottom:8px;color:#333;">📊 測定データ</h3>
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead><tr><th>#</th><th>日時</th><th>温度 (°C)</th><th>間隔 (分)</th></tr></thead>
+                <tbody id="dataTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── 定数 ──────────────────────────────────────────────
+const SERVICE_UUID    = "61830845-385d-41e8-9ee5-a30b150b49e9";
+const WRITE_CHAR_UUID = "804cdb50-bac9-448b-8ae2-41e9750ef93a";
+const READ_CHAR_UUID  = "169bb1bb-ae80-4650-bf4b-afb79f38422a";
+const CCCD_UUID       = "00002902-0000-1000-8000-00805f9b34fb";
+// Indicate = 0x02 0x00（ネイティブアプリが使っている値）
+const ENABLE_INDICATION = new Uint8Array([0x02, 0x00]);
+
+const BASE_TEMP   = 25.0;
+const LSB         = 0.0625;
+const WEARER_NAME = "test";
+const TIMEOUT_SEC = 30;  // ラストフレーム待ちタイムアウト
+
+// ── グローバル ─────────────────────────────────────────
+let device = null, writeChar = null, notifyChar = null;
+let dataBuffer = [], dataAcquisitionTime = null, deviceAddress = null;
+let temperatureChart = null;
+let dbgFrames = 0, dbgParsed = 0;
+
+// ── ユーティリティ ─────────────────────────────────────
+const toHex   = arr => Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join(' ');
+const calcTemp = b  => ((b >= 0 ? b : b + 256) * LSB) + BASE_TEMP;
+const pad      = n  => String(n).padStart(2,'0');
+
+// tripleByteToPositiveInt: LE 3バイト → 整数（ネイティブアプリと同じ）
+const tripleLE = (b0, b1, b2) => b0 | (b1 << 8) | (b2 << 16);
+
+function addLog(msg, type = 'info') {
+    const d = document.getElementById('log');
+    const e = document.createElement('div');
+    e.className = `log-entry log-${type}`;
+    e.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    d.appendChild(e);
+    d.scrollTop = d.scrollHeight;
+}
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+function updateStatus(msg, type = 'info') {
+    const s = document.getElementById('status');
+    s.textContent = msg; s.className = `status status-${type}`;
+}
+function updateDebug() {
+    document.getElementById('dbgFrames').textContent = dbgFrames;
+    document.getElementById('dbgParsed').textContent = dbgParsed;
+}
+
+// ── 接続 ──────────────────────────────────────────────
+async function scanAndConnect() {
+    try {
+        if (!navigator.bluetooth) { updateStatus('Web Bluetooth未対応','error'); return; }
+        addLog('スキャン中...','info');
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ namePrefix: 'TM2101-SR' }],
+            optionalServices: [SERVICE_UUID]
+        });
+        deviceAddress = device.id;
+        addLog(`選択: ${device.name}`, 'success');
+
+        const server  = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+
+        // 書き込み用
+        writeChar  = await service.getCharacteristic(WRITE_CHAR_UUID);
+        // 受信用（Indicate）
+        notifyChar = await service.getCharacteristic(READ_CHAR_UUID);
+
+        addLog(`writeChar properties: W=${notifyChar.properties.write} R=${notifyChar.properties.read}`, 'raw');
+        addLog(`readChar  properties: N=${notifyChar.properties.notify} I=${notifyChar.properties.indicate} R=${notifyChar.properties.read}`, 'raw');
+
+        // ── CCCDに Indicate値(0x02 0x00)を書き込む ──
+        // Web Bluetooth APIでは startNotifications() が CCCD を自動書き込みするが
+        // Notify(0x01)を書いてしまう場合があるため、先に Indicate(0x02)を書いておく
+        try {
+            const cccd = await notifyChar.getDescriptor(CCCD_UUID);
+            await cccd.writeValue(ENABLE_INDICATION);
+            addLog('CCCD に Indicate(0x02 0x00) を書き込み成功', 'success');
+        } catch(e) {
+            addLog(`CCCD直接書き込み失敗（startNotificationsに委ねる）: ${e.message}`, 'warn');
         }
-        
-        // ログ出力
-        function addLog(message, type = 'info') {
-            const logDiv = document.getElementById('log');
-            const entry = document.createElement('div');
-            entry.className = `log-entry log-${type}`;
-            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-            logDiv.appendChild(entry);
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
-        
-        // ステータス更新
-        function updateStatus(message, type = 'info') {
-            const statusDiv = document.getElementById('status');
-            statusDiv.textContent = message;
-            statusDiv.className = `status status-${type}`;
-        }
-        
-        // デバイススキャンと接続
-        async function scanAndConnect() {
-            try {
-                // Web Bluetooth API対応チェック
-                if (!navigator.bluetooth) {
-                    updateStatus('このブラウザはWeb Bluetooth APIに対応していません', 'error');
-                    addLog('エラー: Web Bluetooth API未対応', 'error');
-                    return;
+
+        // startNotifications でイベントリスナーを有効化
+        await notifyChar.startNotifications();
+        addLog('startNotifications 完了', 'success');
+
+        addLog('接続完了！', 'success');
+        updateStatus(`接続完了: ${device.name}`, 'success');
+        document.getElementById('scanBtn').disabled       = true;
+        document.getElementById('getDataBtn').disabled    = false;
+        document.getElementById('setting1Btn').disabled   = false;
+        document.getElementById('setting5Btn').disabled   = false;
+        document.getElementById('disconnectBtn').disabled = false;
+        document.getElementById('debugPanel').classList.remove('hidden');
+
+    } catch(e) { addLog(`接続エラー: ${e.message}`,'error'); updateStatus('接続失敗','error'); }
+}
+
+// ── データ取得 ────────────────────────────────────────
+async function getData() {
+    try {
+        dataBuffer = [];
+        dataAcquisitionTime = null;
+        dbgFrames = dbgParsed = 0;
+        updateDebug();
+        document.getElementById('headerBox').classList.add('hidden');
+        document.getElementById('dbgLast').textContent      = '未';
+        document.getElementById('dbgSensorCount').textContent = '-';
+        document.getElementById('progressFill').style.width  = '0%';
+        ['statsContainer','chartContainer','dataContainer'].forEach(id =>
+            document.getElementById(id).classList.add('hidden'));
+
+        addLog('── データ取得開始 ──', 'info');
+        updateStatus('受信中...', 'warning');
+        document.getElementById('getDataBtn').disabled = true;
+
+        let lastFrameReceived = false;
+        let secondsFromLastMeasurement = 0;
+
+        const onNotify = (event) => {
+            const data = new Uint8Array(event.target.value.buffer);
+            const hex  = toHex(data);
+            dbgFrames++;
+            updateDebug();
+
+            // 空フレーム
+            if (data.length === 0) {
+                addLog(`#${dbgFrames} (0B) 空`, 'raw');
+                return;
+            }
+
+            addLog(`#${dbgFrames} (${data.length}B): [${hex}]`, 'raw');
+
+            // ── ラストフレーム判定: 9バイト以上 & 先頭EN & 末尾\n ──
+            if (data.length >= 9 && data[0] === 0x45 && data[1] === 0x4E && data[data.length-1] === 0x0A) {
+                // byte[2..4] LE 3バイト = データ件数
+                const sensorCount = tripleLE(data[2], data[3], data[4]);
+                // byte[5..7] LE 3バイト = 最終測定からの経過秒
+                secondsFromLastMeasurement = tripleLE(data[5], data[6], data[7]);
+
+                addLog(`✅ ラストフレーム! センサ内件数=${sensorCount} 経過秒=${secondsFromLastMeasurement}`, 'success');
+                document.getElementById('dbgLast').textContent        = '受信';
+                document.getElementById('dbgSensorCount').textContent  = sensorCount;
+
+                // ヘッダーボックス更新
+                document.getElementById('hdrRaw').textContent   = hex;
+                document.getElementById('hdrCount').textContent = sensorCount;
+                document.getElementById('hdrSec').textContent   = secondsFromLastMeasurement;
+                document.getElementById('headerBox').classList.remove('hidden');
+
+                // 取得時刻を経過秒で補正
+                dataAcquisitionTime = new Date(Date.now() - secondsFromLastMeasurement * 1000);
+                lastFrameReceived = true;
+                return;
+            }
+
+            // ── 偶数バイト → 温度データフレーム ──
+            if (data.length % 2 === 0) {
+                for (let i = 0; i < data.length; i += 2) {
+                    const interval = data[i];
+                    const temp     = calcTemp(data[i+1]);
+                    dataBuffer.push({ interval, temperature: temp });
+                    dbgParsed++;
                 }
-                
-                addLog('デバイスをスキャン中...', 'info');
-                updateStatus('デバイスをスキャン中...', 'info');
-                
-                // Bluetoothデバイスを選択（TM2101-SRで始まる名前）
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: 'TM2101-SR' }],
-                    optionalServices: [SERVICE_UUID]
-                });
-                
-                deviceAddress = device.id;
-                addLog(`デバイス選択: ${device.name} (${device.id})`, 'success');
-                
-                // GATT サーバーに接続
-                addLog('デバイスに接続中...', 'info');
-                const server = await device.gatt.connect();
-                addLog('接続成功！', 'success');
-                
-                // サービスを取得
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                
-                // キャラクタリスティックを取得
-                characteristic = await service.getCharacteristic(WRITE_CHAR_UUID);
-                
-                updateStatus(`接続完了: ${device.name}`, 'success');
-                
-                // ボタンの状態を更新
-                document.getElementById('scanBtn').disabled = true;
-                document.getElementById('getDataBtn').disabled = false;
-                document.getElementById('disconnectBtn').disabled = false;
-                
-            } catch (error) {
-                addLog(`エラー: ${error.message}`, 'error');
-                updateStatus('接続に失敗しました', 'error');
-                console.error(error);
+                updateDebug();
+                addLog(`  → データ ${data.length/2}件パース済み（累計${dbgParsed}件）`, 'data');
+                return;
+            }
+
+            addLog(`  → 不明フレーム(${data.length}B)`, 'warn');
+        };
+
+        notifyChar.addEventListener('characteristicvaluechanged', onNotify);
+
+        // GETDATAコマンド送信
+        await writeChar.writeValue(new TextEncoder().encode("GETDATA\n"));
+        addLog('GETDATA\n 送信', 'success');
+
+        // ラストフレーム待機（TIMEOUT_SEC秒）
+        const fill = document.getElementById('progressFill');
+        let silentSec = 0, prevFrames = 0;
+
+        for (let i = 0; i < TIMEOUT_SEC; i++) {
+            await new Promise(r => setTimeout(r, 1000));
+            fill.style.width = ((i+1)/TIMEOUT_SEC*100) + '%';
+
+            if (lastFrameReceived) break;
+
+            // 5秒無通信で警告
+            if (dbgFrames === prevFrames && dbgFrames > 0) {
+                silentSec++;
+                if (silentSec >= 5) {
+                    addLog('5秒間フレームなし', 'warn');
+                    break;
+                }
+            } else {
+                silentSec = 0;
+            }
+            prevFrames = dbgFrames;
+        }
+
+        notifyChar.removeEventListener('characteristicvaluechanged', onNotify);
+        fill.style.width = '100%';
+
+        // ── 結果 ──
+        addLog(`── 完了: フレーム${dbgFrames}個 / データ${dataBuffer.length}件 ──`, 'success');
+
+        if (dataBuffer.length > 0) {
+            updateStatus(`取得完了: ${dataBuffer.length}件`, 'success');
+            displayData(); displayStats(); displayChart();
+            document.getElementById('downloadBtn').disabled = false;
+        } else if (lastFrameReceived) {
+            updateStatus('ラストフレーム受信済みだがデータ0件（センサにデータなし？）', 'warning');
+        } else {
+            updateStatus('データ取得失敗 — ログを確認してください', 'error');
+        }
+
+        document.getElementById('getDataBtn').disabled = false;
+
+    } catch(e) {
+        addLog(`エラー: ${e.message}`, 'error');
+        updateStatus('失敗', 'error');
+        document.getElementById('getDataBtn').disabled = false;
+    }
+}
+
+// ── 表示 ──────────────────────────────────────────────
+function buildTimeSeries() {
+    // ラストフレームの時刻から逆算（ネイティブアプリと同じロジック）
+    let t = new Date(dataAcquisitionTime);
+    const r = [];
+    for (let i = dataBuffer.length - 1; i >= 0; i--) {
+        r.unshift({ ...dataBuffer[i], datetime: new Date(t) });
+        if (i > 0) t = new Date(t.getTime() - dataBuffer[i].interval * 60000);
+    }
+    return r;
+}
+
+function displayData() {
+    const tbody = document.getElementById('dataTableBody');
+    tbody.innerHTML = '';
+    buildTimeSeries().forEach((d, idx) => {
+        const row = tbody.insertRow();
+        row.insertCell(0).textContent = idx + 1;
+        row.insertCell(1).textContent = fmtDT(d.datetime);
+        row.insertCell(2).textContent = d.temperature.toFixed(2);
+        row.insertCell(3).textContent = d.interval;
+    });
+    document.getElementById('dataContainer').classList.remove('hidden');
+}
+
+function displayStats() {
+    if (!dataBuffer.length) return;
+    const temps = dataBuffer.map(d => d.temperature);
+    const avg   = temps.reduce((a,b)=>a+b,0) / temps.length;
+    document.getElementById('statCount').textContent = dataBuffer.length;
+    document.getElementById('statAvg').textContent   = avg.toFixed(2) + '°C';
+    document.getElementById('statMax').textContent   = Math.max(...temps).toFixed(2) + '°C';
+    document.getElementById('statMin').textContent   = Math.min(...temps).toFixed(2) + '°C';
+    document.getElementById('statsContainer').classList.remove('hidden');
+}
+
+function displayChart() {
+    if (!dataBuffer.length) return;
+    const series = buildTimeSeries();
+    const labels = series.map(d => `${pad(d.datetime.getHours())}:${pad(d.datetime.getMinutes())}`);
+    const temps  = series.map(d => d.temperature);
+    if (temperatureChart) temperatureChart.destroy();
+    temperatureChart = new Chart(
+        document.getElementById('temperatureChart').getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: [{
+            label: '体表温 (°C)', data: temps,
+            borderColor: 'rgb(102,126,234)', backgroundColor: 'rgba(102,126,234,0.1)',
+            borderWidth: 2, tension: 0.4, fill: true,
+            pointRadius: 2, pointHoverRadius: 5,
+            pointBackgroundColor: 'rgb(102,126,234)', pointBorderColor:'#fff', pointBorderWidth:1
+        }]},
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'top' },
+                tooltip: { callbacks: { label: c => '温度: ' + c.parsed.y.toFixed(2) + '°C' } }
+            },
+            scales: {
+                y: { title: { display: true, text: '温度 (°C)' }, ticks: { callback: v => v.toFixed(1)+'°C' } },
+                x: { title: { display: true, text: '時刻' }, ticks: { maxRotation:45, minRotation:45 } }
             }
         }
-        
-        // データ取得
-        async function getData() {
-            try {
-                dataBuffer = [];
-                dataAcquisitionTime = null;
-                
-                addLog('データ取得を開始します...', 'info');
-                updateStatus('データ取得中...', 'info');
-                
-                // ボタンを無効化
-                document.getElementById('getDataBtn').disabled = true;
-                
-                // 通知用キャラクタリスティックを取得
-                const service = await device.gatt.getPrimaryService(SERVICE_UUID);
-                const notifyChar = await service.getCharacteristic(READ_CHAR_UUID);
-                
-                // 通知を設定
-                let measurementComplete = false;
-                
-                notifyChar.addEventListener('characteristicvaluechanged', (event) => {
-                    const value = event.target.value;
-                    const data = new Uint8Array(value.buffer);
-                    
-                    addLog(`データ受信: ${data.length} bytes`, 'data');
-                    
-                    // 終了フレーム検出
-                    if (data.length >= 2 && data[0] === 0x45 && data[1] === 0x4E) { // 'EN'
-                        addLog('最終フレーム受信（データ取得完了）', 'success');
-                        measurementComplete = true;
-                        dataAcquisitionTime = new Date();
-                        return;
-                    }
-                    
-                    // 温度データをパース
-                    if (data.length >= 2 && data.length % 2 === 0) {
-                        for (let i = 0; i < data.length; i += 2) {
-                            const interval = data[i];
-                            const tempByte = data[i + 1];
-                            const temperature = calculateTemperature(tempByte);
-                            
-                            dataBuffer.push({
-                                interval: interval,
-                                temperature: temperature,
-                                rawTempByte: tempByte
-                            });
-                            
-                            addLog(`  温度: ${temperature.toFixed(2)}°C (間隔: ${interval}分)`, 'data');
-                        }
-                    }
-                });
-                
-                await notifyChar.startNotifications();
-                addLog('通知を有効化しました', 'info');
-                
-                // GETDATAコマンドを送信
-                const command = "GETDATA\n";
-                const encoder = new TextEncoder();
-                const commandBytes = encoder.encode(command);
-                
-                await characteristic.writeValue(commandBytes);
-                addLog('GETDATAコマンド送信', 'success');
-                
-                // データ受信完了を待機
-                const timeout = 60000; // 60秒
-                const startTime = Date.now();
-                
-                while (!measurementComplete) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    
-                    if (Date.now() - startTime > timeout) {
-                        addLog('タイムアウト', 'error');
-                        break;
-                    }
-                }
-                
-                // 通知を停止
-                await notifyChar.stopNotifications();
-                
-                if (dataBuffer.length > 0) {
-                    addLog(`データ取得完了: ${dataBuffer.length}件`, 'success');
-                    updateStatus(`データ取得完了: ${dataBuffer.length}件`, 'success');
-                    displayData();
-                    displayStats();
-                    displayChart();  // グラフ表示を追加
-                    document.getElementById('downloadBtn').disabled = false;
-                } else {
-                    addLog('データが取得できませんでした', 'error');
-                    updateStatus('データ取得失敗', 'error');
-                }
-                
-                document.getElementById('getDataBtn').disabled = false;
-                
-            } catch (error) {
-                addLog(`エラー: ${error.message}`, 'error');
-                updateStatus('データ取得に失敗しました', 'error');
-                console.error(error);
-                document.getElementById('getDataBtn').disabled = false;
-            }
-        }
-        
-        // データ表示
-        function displayData() {
-            const tbody = document.getElementById('dataTableBody');
-            tbody.innerHTML = '';
-            
-            // 時刻を計算
-            let currentTime = new Date(dataAcquisitionTime);
-            const dataWithTime = [];
-            
-            for (let i = dataBuffer.length - 1; i >= 0; i--) {
-                dataWithTime.unshift({
-                    ...dataBuffer[i],
-                    datetime: new Date(currentTime)
-                });
-                
-                if (i > 0) {
-                    currentTime = new Date(currentTime.getTime() - dataBuffer[i].interval * 60000);
-                }
-            }
-            
-            // テーブルに表示
-            dataWithTime.forEach((data, index) => {
-                const row = tbody.insertRow();
-                row.insertCell(0).textContent = index + 1;
-                row.insertCell(1).textContent = formatDateTime(data.datetime);
-                row.insertCell(2).textContent = data.temperature.toFixed(2);
-                row.insertCell(3).textContent = data.interval;
-            });
-            
-            document.getElementById('dataContainer').classList.remove('hidden');
-        }
-        
-        // 統計表示
-        function displayStats() {
-            if (dataBuffer.length === 0) return;
-            
-            const temps = dataBuffer.map(d => d.temperature);
-            const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
-            const max = Math.max(...temps);
-            const min = Math.min(...temps);
-            
-            document.getElementById('statCount').textContent = dataBuffer.length;
-            document.getElementById('statAvg').textContent = avg.toFixed(2) + '°C';
-            document.getElementById('statMax').textContent = max.toFixed(2) + '°C';
-            document.getElementById('statMin').textContent = min.toFixed(2) + '°C';
-            
-            document.getElementById('statsContainer').classList.remove('hidden');
-        }
-        
-        // グラフ表示
-        function displayChart() {
-            if (dataBuffer.length === 0) return;
-            
-            // 時刻を計算
-            let currentTime = new Date(dataAcquisitionTime);
-            const dataWithTime = [];
-            
-            for (let i = dataBuffer.length - 1; i >= 0; i--) {
-                dataWithTime.unshift({
-                    ...dataBuffer[i],
-                    datetime: new Date(currentTime)
-                });
-                
-                if (i > 0) {
-                    currentTime = new Date(currentTime.getTime() - dataBuffer[i].interval * 60000);
-                }
-            }
-            
-            // ラベルとデータを準備
-            const labels = dataWithTime.map(d => {
-                const date = d.datetime;
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                return `${hours}:${minutes}`;
-            });
-            
-            const temperatures = dataWithTime.map(d => d.temperature);
-            
-            // 既存のチャートがあれば破棄
-            if (temperatureChart) {
-                temperatureChart.destroy();
-            }
-            
-            // Chart.jsでグラフを作成
-            const ctx = document.getElementById('temperatureChart').getContext('2d');
-            temperatureChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '体表温 (°C)',
-                        data: temperatures,
-                        borderColor: 'rgb(102, 126, 234)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        pointBackgroundColor: 'rgb(102, 126, 234)',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                },
-                                color: '#333'
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            padding: 12,
-                            titleFont: {
-                                size: 14
-                            },
-                            bodyFont: {
-                                size: 14
-                            },
-                            callbacks: {
-                                label: function(context) {
-                                    return '温度: ' + context.parsed.y.toFixed(2) + '°C';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            title: {
-                                display: true,
-                                text: '温度 (°C)',
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                },
-                                color: '#333'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            },
-                            ticks: {
-                                font: {
-                                    size: 12
-                                },
-                                color: '#666',
-                                callback: function(value) {
-                                    return value.toFixed(1) + '°C';
-                                }
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: '時刻',
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                },
-                                color: '#333'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            },
-                            ticks: {
-                                font: {
-                                    size: 11
-                                },
-                                color: '#666',
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        }
-                    }
-                }
-            });
-            
-            document.getElementById('chartContainer').classList.remove('hidden');
-            addLog('グラフを表示しました', 'success');
-        }
-        
-        // CSV生成とダウンロード
-        function downloadCSV() {
-            if (dataBuffer.length === 0) return;
-            
-            // CSVデータ生成
-            let csv = 'halshareWearerName,halshareId,datetime,temperature\n';
-            
-            let currentTime = new Date(dataAcquisitionTime);
-            const csvRows = [];
-            
-            for (let i = dataBuffer.length - 1; i >= 0; i--) {
-                csvRows.unshift({
-                    wearerName: WEARER_NAME,
-                    id: deviceAddress,
-                    datetime: formatDateTime(currentTime),
-                    temperature: dataBuffer[i].temperature
-                });
-                
-                if (i > 0) {
-                    currentTime = new Date(currentTime.getTime() - dataBuffer[i].interval * 60000);
-                }
-            }
-            
-            csvRows.forEach(row => {
-                csv += `"${row.wearerName}","${row.id}","${row.datetime}",${row.temperature}\n`;
-            });
-            
-            // ダウンロード
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            
-            const filename = `halshare_data_${formatFileDateTime(new Date())}.csv`;
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            addLog(`CSVファイルをダウンロードしました: ${filename}`, 'success');
-        }
-        
-        // 切断
-        function disconnect() {
-            if (device && device.gatt.connected) {
-                device.gatt.disconnect();
-                addLog('デバイスから切断しました', 'info');
-                updateStatus('切断しました', 'info');
-            }
-            
-            document.getElementById('scanBtn').disabled = false;
-            document.getElementById('getDataBtn').disabled = true;
-            document.getElementById('disconnectBtn').disabled = true;
-        }
-        
-        // 日時フォーマット
-        function formatDateTime(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            
-            return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-        }
-        
-        function formatFileDateTime(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            
-            return `${year}${month}${day}_${hours}${minutes}${seconds}`;
-        }
-        
-        // 初期化
-        addLog('アプリケーション起動', 'success');
-        
-        // Web Bluetooth API対応チェック
-        if (!navigator.bluetooth) {
-            updateStatus('このブラウザはWeb Bluetooth APIに対応していません', 'error');
-            addLog('エラー: Web Bluetooth API未対応', 'error');
-            addLog('Chrome、Edge、Operaなどのブラウザをお使いください', 'error');
-            document.getElementById('scanBtn').disabled = true;
-        }
-    </script>
+    });
+    document.getElementById('chartContainer').classList.remove('hidden');
+}
+
+// ── CSV ──────────────────────────────────────────────
+function downloadCSV() {
+    if (!dataBuffer.length) return;
+    let csv = 'halshareWearerName,halshareId,datetime,temperature\n';
+    buildTimeSeries().forEach(r => {
+        csv += `"${WEARER_NAME}","${deviceAddress}","${fmtDT(r.datetime)}",${r.temperature}\n`;
+    });
+    const a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'})),
+        download: `halshare_${fmtFileDT(new Date())}.csv`
+    });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    addLog(`CSVダウンロード: ${a.download}`, 'success');
+}
+
+// ── 切断 ─────────────────────────────────────────────
+async function disconnect() {
+    try {
+        if (notifyChar) await notifyChar.stopNotifications().catch(()=>{});
+    } catch(e) {}
+    if (device?.gatt.connected) device.gatt.disconnect();
+    addLog('切断しました', 'info');
+    updateStatus('切断しました', 'info');
+    document.getElementById('scanBtn').disabled       = false;
+    document.getElementById('getDataBtn').disabled    = true;
+    document.getElementById('setting1Btn').disabled   = true;
+    document.getElementById('setting5Btn').disabled   = true;
+    document.getElementById('disconnectBtn').disabled = true;
+    notifyChar = null; writeChar = null;
+}
+
+// ── フォーマット ──────────────────────────────────────
+function fmtDT(d) {
+    return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function fmtFileDT(d) {
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+// ── 起動 ─────────────────────────────────────────────
+addLog('起動', 'success');
+if (!navigator.bluetooth) {
+    updateStatus('Web Bluetooth API未対応 — Chrome/Edge/Operaを使用してください', 'error');
+    document.getElementById('scanBtn').disabled = true;
+}
+</script>
 </body>
 </html>
